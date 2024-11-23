@@ -24,7 +24,8 @@
   "settings": {
     "debug.onTaskErrors": "abort",
     "files.associations": {
-      "*.h": "c"
+      "*.h": "c",
+      "cstdlib": "c"
     },
     "C_Cpp.errorSquiggles": "disabled",
     "makefile.launchConfigurations": [

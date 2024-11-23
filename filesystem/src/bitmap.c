@@ -1,5 +1,6 @@
 #include "bitmap.h"
 
+ 
 void inicializar_bitmap() {
     char *path_bitmap = config_get_string_value(config, "MOUNT_DIR");
     strcat(path_bitmap, "/bitmap.dat");
