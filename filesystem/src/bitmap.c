@@ -1,59 +1,85 @@
 #include "bitmap.h"
 
- 
-void inicializar_bitmap() {
-    char *path_bitmap = config_get_string_value(config, "MOUNT_DIR");
-    strcat(path_bitmap, "/bitmap.dat");
+static t_bitarray* bitmap; // Estructura que representa el bitmap en memoria
+static pthread_mutex_t mutex_bitmap;
+static FILE* bitmap_file;
 
-    // Leer o inicializar bitmap en memoria
-    FILE *archivo = fopen(path_bitmap, "rb+");
-    if (!archivo) {
-        archivo = fopen(path_bitmap, "wb+");
-        if (!archivo) {
-            log_error(logger, "Error al crear el archivo bitmap.dat");
-            exit(EXIT_FAILURE);
-        }
+extern config;
+extern logger;
+void inicializar_bitmap(const char* path, t_config* config) {
+    // Obtener BLOCK_COUNT del archivo de configuración
+    char* block_count_str = config_get_string_value(config, "BLOCK_COUNT");
+    if (block_count_str == NULL) {
+        log_error(logger, "No se encontró el valor BLOCK_COUNT en el archivo de configuración.");
+        exit(EXIT_FAILURE);
     }
 
-    size_t tamanio = (block_count + 7) / 8;
-    void *contenido = malloc(tamanio);
-    fread(contenido, tamanio, 1, archivo);
+    uint32_t block_count = (uint32_t) strtoul(block_count_str, NULL, 10);
 
-    bitmap = bitarray_create_with_mode(contenido, tamanio, LSB_FIRST);
-    fclose(archivo);
+    // Calcular el tamaño del bitmap
+    size_t tamanio_bitmap = (block_count + 7) / 8;  //Cada bit representa un bloque, por lo que el tamaño total es block_count / 8 (bloques convertidos a bytes).
+                                                    //Se suma 7 antes de dividir para redondear hacia arriba (maneja bloques parciales).
+    // Abre o crea el archivo bitmap.dat
+    FILE* archivo_bitmap = fopen(path, "rb+");
+    if (archivo_bitmap == NULL) {
+        archivo_bitmap = fopen(path, "wb+");
+        log_info(logger, "Error al crear el archivo del bitmap");
+        // Inicializar el archivo con ceros
+        uint8_t* buffer = calloc(tamanio_bitmap, sizeof(uint8_t)); //Asigna memoria para un buffer inicializado en ceros, cuyo tamaño es igual al bitmap
+        fwrite(buffer, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap); //Escribe el buffer de ceros en el archivo para inicializarlo.
+        fflush(archivo_bitmap); //Asegura que los datos escritos se guarden físicamente en el archivo.
+
+        free(buffer);
+    }
+
+    // Leer o mapear el contenido del bitmap a memoria
+    uint8_t* contenido_bitmap = malloc(tamanio_bitmap);// Reserva memoria para almacenar el contenido del bitmap
+    fread(contenido_bitmap, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap); // Lee los datos del archivo bitmap.dat y los copia en el buffer contenido_bitmap
+
+    // Crear la estructura t_bitarray
+    t_bitarray* bitmap = bitarray_create_with_mode(contenido_bitmap, tamanio_bitmap, LSB_FIRST); // Crea un manejador del bitmap (t_bitarray) usando la memoria cargada.
+    if (!bitmap) {
+        log_info(logger,"Error al inicializar el bitmap");
+        exit(EXIT_FAILURE);
+    }
+
+    fclose(archivo_bitmap);
+    log_info(logger, "Bitmap inicializado correctamente.");
 }
 
-int reservar_bloques(int cantidad) {
+
+// Ejemplo de reserva y liberación
+uint32_t reservar_bloque() {
     pthread_mutex_lock(&mutex_bitmap);
-    int bloques[cantidad];
-    int reservados = 0;
-
-    for (int i = 0; i < block_count; i++) {
+    for (uint32_t i = 0; i < bitarray_get_max_bit(bitmap); i++) {
         if (!bitarray_test_bit(bitmap, i)) {
-            bloques[reservados++] = i;
             bitarray_set_bit(bitmap, i);
-            if (reservados == cantidad) {
-                pthread_mutex_unlock(&mutex_bitmap);
-                return bloques[0]; // Devuelve el primer bloque de índices
-            }
+            pthread_mutex_unlock(&mutex_bitmap);
+            return i;
         }
     }
-
     pthread_mutex_unlock(&mutex_bitmap);
-    return -1; // No hay suficientes bloques libres
+    return -1; // No hay bloques disponibles
 }
 
-void liberar_bloque(int bloque) {
+void liberar_bloque(uint32_t bloque) {
     pthread_mutex_lock(&mutex_bitmap);
     bitarray_clean_bit(bitmap, bloque);
     pthread_mutex_unlock(&mutex_bitmap);
 }
 
-void actualizar_bitmap() {
-    char *path_bitmap = config_get_string_value(config, "MOUNT_DIR");
-    strcat(path_bitmap, "/bitmap.dat");
+void destruir_bitmap() {
+    pthread_mutex_lock(&mutex_bitmap);
 
-    FILE *archivo = fopen(path_bitmap, "wb+");
-    fwrite(bitmap->bitarray, bitmap->size, 1, archivo);
-    fclose(archivo);
+    // Escribir el bitmap en el archivo
+    fseek(bitmap_file, 0, SEEK_SET);
+    fwrite(bitmap->bitarray, sizeof(uint8_t), bitarray_get_max_bit(bitmap) / 8, bitmap_file);
+    fflush(bitmap_file);
+
+    // Liberar recursos
+    bitarray_destroy(bitmap);
+    fclose(bitmap_file);
+
+    pthread_mutex_unlock(&mutex_bitmap);
+    pthread_mutex_destroy(&mutex_bitmap);
 }

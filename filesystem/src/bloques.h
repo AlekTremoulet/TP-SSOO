@@ -2,6 +2,12 @@
 #ifndef BLOCKS_H
 #define BLOCKS_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <commons/log.h>
+#include "../../filesystem/src/mian.h"
 #include "filesystem.h"
 
 void inicializar_bloques();

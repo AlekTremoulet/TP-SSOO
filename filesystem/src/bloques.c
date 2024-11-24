@@ -1,5 +1,6 @@
-#include "blocks.h"
-
+#include "bloques.h"
+extern config;
+extern logger;
 void inicializar_bloques() {
     char *path_bloques = config_get_string_value(config, "MOUNT_DIR");
     strcat(path_bloques, "/bloques.dat");
