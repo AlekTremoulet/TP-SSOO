@@ -1,6 +1,8 @@
+/*
+
 #include "bloques.h"
-extern config;
-extern logger;
+extern t_config* config;
+extern t_log* logger;
 void inicializar_bloques() {
     char *path_bloques = config_get_string_value(config, "MOUNT_DIR");
     strcat(path_bloques, "/bloques.dat");
@@ -34,3 +36,5 @@ void *leer_bloque(int bloque) {
     usleep(retardo_acceso * 1000); // Retardo simulado
     return bloques + (bloque * block_size);
 }
+
+*/

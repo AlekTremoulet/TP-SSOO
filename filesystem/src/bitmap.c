@@ -4,8 +4,8 @@ static t_bitarray* bitmap; // Estructura que representa el bitmap en memoria
 static pthread_mutex_t mutex_bitmap;
 static FILE* bitmap_file;
 
-extern config;
-extern logger;
+extern t_config *config;
+extern t_log *logger;
 void inicializar_bitmap(const char* path, t_config* config) {
     // Obtener BLOCK_COUNT del archivo de configuración
     char* block_count_str = config_get_string_value(config, "BLOCK_COUNT");
@@ -17,8 +17,15 @@ void inicializar_bitmap(const char* path, t_config* config) {
     uint32_t block_count = (uint32_t) strtoul(block_count_str, NULL, 10);
 
     // Calcular el tamaño del bitmap
-    size_t tamanio_bitmap = (block_count + 7) / 8;  //Cada bit representa un bloque, por lo que el tamaño total es block_count / 8 (bloques convertidos a bytes).
-                                                    //Se suma 7 antes de dividir para redondear hacia arriba (maneja bloques parciales).
+    
+    size_t tamanio_bitmap;
+
+    if (block_count % 8 == 0) {
+        tamanio_bitmap = block_count / 8; // Si es divisible por 8, se divide.
+    } else {
+        tamanio_bitmap = (block_count + 7) / 8; // Si no es divisible, se redondea para arriba.
+    }
+
     // Abre o crea el archivo bitmap.dat
     FILE* archivo_bitmap = fopen(path, "rb+");
     if (archivo_bitmap == NULL) {
@@ -33,8 +40,8 @@ void inicializar_bitmap(const char* path, t_config* config) {
     }
 
     // Leer o mapear el contenido del bitmap a memoria
-    uint8_t* contenido_bitmap = malloc(tamanio_bitmap);// Reserva memoria para almacenar el contenido del bitmap
-    fread(contenido_bitmap, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap); // Lee los datos del archivo bitmap.dat y los copia en el buffer contenido_bitmap
+    uint8_t* contenido_bitmap = malloc(tamanio_bitmap);                                          // Reserva memoria para almacenar el contenido del bitmap
+    fread(contenido_bitmap, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap);                    // Lee los datos del archivo bitmap.dat y los copia en el buffer contenido_bitmap
 
     // Crear la estructura t_bitarray
     t_bitarray* bitmap = bitarray_create_with_mode(contenido_bitmap, tamanio_bitmap, LSB_FIRST); // Crea un manejador del bitmap (t_bitarray) usando la memoria cargada.
@@ -48,7 +55,6 @@ void inicializar_bitmap(const char* path, t_config* config) {
 }
 
 
-// Ejemplo de reserva y liberación
 uint32_t reservar_bloque() {
     pthread_mutex_lock(&mutex_bitmap);
     for (uint32_t i = 0; i < bitarray_get_max_bit(bitmap); i++) {
