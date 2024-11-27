@@ -55,7 +55,8 @@ typedef enum
     OBTENER_INSTRUCCION,
     ERROR_MEMORIA,
     INFO_HILO, // agregado para cuando el kernel le manda al cpu el tid del hilo planificado a ejecutar
-    OK
+    OK,
+    INIT_BITMAP
     
 }protocolo_socket;
 

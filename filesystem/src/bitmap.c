@@ -25,11 +25,11 @@ void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
         tamanio_bitmap = (block_count + 7) / 8; // Si no es divisible, se redondea para arriba.
     }
     
- size_t path_length = strlen(mount_dir) + strlen("/bitmap.dat") + 1;
+    size_t path_length = strlen(mount_dir) + strlen("/bitmap.dat") + 1;
     char *path_bitmap = malloc(path_length);
     if (path_bitmap == NULL) {
         log_info(logger, "Error: No se pudo asignar memoria para path_bloques.");
-        return 1;
+        return exit(EXIT_FAILURE);
     }
 
     // Construir la ruta completa
@@ -52,11 +52,13 @@ void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
 
 
     // Leer o mapear el contenido del bitmap a memoria
-    uint8_t* contenido_bitmap = malloc(tamanio_bitmap);                                          // Reserva memoria para almacenar el contenido del bitmap
-    fread(contenido_bitmap, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap);                    // Lee los datos del archivo bitmap.dat y los copia en el buffer contenido_bitmap
-
+    uint8_t* contenido_bitmap = malloc(tamanio_bitmap);                                                // Reserva memoria para almacenar el contenido del bitmap                  
+    if (fread(contenido_bitmap, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap) != tamanio_bitmap) {  // Lee los datos del archivo bitmap.dat y los copia en el buffer contenido_bitmap
+        log_error(logger, "Error al leer el archivo bitmap.dat");
+        exit(EXIT_FAILURE);
+    }
     // Crear la estructura t_bitarray
-    t_bitarray* bitmap = bitarray_create_with_mode(contenido_bitmap, tamanio_bitmap, LSB_FIRST); // Crea un manejador del bitmap (t_bitarray) usando la memoria cargada.
+    bitmap = bitarray_create_with_mode((char*)contenido_bitmap, tamanio_bitmap, LSB_FIRST); // Crea un manejador del bitmap (t_bitarray) usando la memoria cargada. uso el cast (char*) porque la funcion funciona con ese tipo de variable
     if (!bitmap) {
         log_info(logger,"Error al inicializar el bitmap");
         exit(EXIT_FAILURE);
@@ -64,11 +66,32 @@ void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
 
     fclose(archivo_bitmap);
     log_info(logger, "Bitmap inicializado correctamente.");
+
+    free(path_bitmap);
 }
 
-
+bool espacio_disponible(int cantidad) { //asegurar que hay bloques libres antes de intentar reservar uno
+    pthread_mutex_lock(&mutex_bitmap);
+    int libres = 0;
+    for (int i = 0; i < bitarray_get_max_bit(bitmap); i++) {
+        if (!bitarray_test_bit(bitmap, i)) {
+            libres++;
+            if (libres >= cantidad) {
+                pthread_mutex_unlock(&mutex_bitmap);
+                return true;
+            }
+        }
+    }
+    pthread_mutex_unlock(&mutex_bitmap);
+    return false;
+}
 uint32_t reservar_bloque() {
     pthread_mutex_lock(&mutex_bitmap);
+    if (!espacio_disponible(1)) {
+        pthread_mutex_unlock(&mutex_bitmap);
+        log_error(logger, "No hay bloques disponibles para reservar.");
+        return ;
+    }
     for (uint32_t i = 0; i < bitarray_get_max_bit(bitmap); i++) {
         if (!bitarray_test_bit(bitmap, i)) {
             bitarray_set_bit(bitmap, i);
@@ -88,10 +111,17 @@ void liberar_bloque(uint32_t bloque) {
 
 void destruir_bitmap() {
     pthread_mutex_lock(&mutex_bitmap);
-
-    // Escribir el bitmap en el archivo
+    bitmap_file = fopen("bitmap.dat", "rb+");
+    if (!bitmap_file) {
+        log_error(logger, "Error al abrir el archivo bitmap.dat para escribir");
+        exit(EXIT_FAILURE);
+    }
+            // Escribir el bitmap en el archivo
     fseek(bitmap_file, 0, SEEK_SET);
-    fwrite(bitmap->bitarray, sizeof(uint8_t), bitarray_get_max_bit(bitmap) / 8, bitmap_file);
+    if (fwrite(bitmap->bitarray, sizeof(uint8_t), bitarray_get_max_bit(bitmap) / 8, bitmap_file) != bitarray_get_max_bit(bitmap) / 8) {
+        log_error(logger, "Error al escribir el archivo bitmap.dat");
+        exit(EXIT_FAILURE);
+    }
     fflush(bitmap_file);
 
     // Liberar recursos
