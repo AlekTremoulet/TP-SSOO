@@ -10,9 +10,10 @@
 #include <commons/log.h>
 #include "main.h"
 
-void inicializar_bitmap(const char* path, t_config* config);
+void inicializar_bitmap(const char* path,char* block_count_str);
 int reservar_bloques(int cantidad);
 void liberar_bloque(uint32_t bloque);
 void actualizar_bitmap();
+void destruir_bitmap();
 
 #endif

@@ -6,9 +6,8 @@ static FILE* bitmap_file;
 
 extern t_config *config;
 extern t_log *logger;
-void inicializar_bitmap(const char* path, t_config* config) {
+void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
     // Obtener BLOCK_COUNT del archivo de configuración 
-    char* block_count_str = config_get_string_value(config, "BLOCK_COUNT"); //esto tira segmentation fault
     if (block_count_str == NULL) {
         log_error(logger, "No se encontró el valor BLOCK_COUNT en el archivo de configuración.");
         exit(EXIT_FAILURE);
@@ -25,19 +24,32 @@ void inicializar_bitmap(const char* path, t_config* config) {
     } else {
         tamanio_bitmap = (block_count + 7) / 8; // Si no es divisible, se redondea para arriba.
     }
+    
+ size_t path_length = strlen(mount_dir) + strlen("/bitmap.dat") + 1;
+    char *path_bitmap = malloc(path_length);
+    if (path_bitmap == NULL) {
+        log_info(logger, "Error: No se pudo asignar memoria para path_bloques.");
+        return 1;
+    }
 
-    // Abre o crea el archivo bitmap.dat
-    FILE* archivo_bitmap = fopen(path, "rb+");
-    if (archivo_bitmap == NULL) {
-        archivo_bitmap = fopen(path, "wb+");
-        log_info(logger, "Error al crear el archivo del bitmap");
+    // Construir la ruta completa
+    snprintf(path_bitmap, path_length, "%s/bitmap.dat", mount_dir);
+    log_info(logger, "path bitmap:%s",path_bitmap);
+    FILE *archivo_bitmap = fopen(path_bitmap, "rb+");
+    if (!archivo_bitmap) {
+        archivo_bitmap = fopen(path_bitmap, "wb+");
+        if (!archivo_bitmap) {
+            log_error(logger, "Error al crear el archivo bitmap.dat");
+            exit(EXIT_FAILURE);
+        }
         // Inicializar el archivo con ceros
         uint8_t* buffer = calloc(tamanio_bitmap, sizeof(uint8_t)); //Asigna memoria para un buffer inicializado en ceros, cuyo tamaño es igual al bitmap
         fwrite(buffer, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap); //Escribe el buffer de ceros en el archivo para inicializarlo.
         fflush(archivo_bitmap); //Asegura que los datos escritos se guarden físicamente en el archivo.
-
         free(buffer);
     }
+
+
 
     // Leer o mapear el contenido del bitmap a memoria
     uint8_t* contenido_bitmap = malloc(tamanio_bitmap);                                          // Reserva memoria para almacenar el contenido del bitmap

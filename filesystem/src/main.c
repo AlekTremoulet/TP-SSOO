@@ -22,10 +22,11 @@ int main() {
     int block_count = config_get_int_value(config, "BLOCK_COUNT");
     int block_size = config_get_int_value(config, "BLOCK_SIZE");
     int retardo_acceso = config_get_int_value(config, "RETARDO_ACCESO_BLOQUE");
-
+	char* block_count_str = config_get_string_value(config, "BLOCK_COUNT");
+	char* mount_dir = config_get_string_value(config, "MOUNT_DIR");
 	// Inicializar estructuras
-    inicializar_bitmap();
-    inicializar_bloques(block_count,block_size, config);
+    inicializar_bitmap(mount_dir,block_count_str);
+    inicializar_bloques(block_count,block_size,mount_dir);
 	
     //conexiones
 	pthread_create(&tid_memoria, NULL, conexion_memoria, (void *)&arg_memoria);
