@@ -7,8 +7,8 @@ static FILE* bitmap_file;
 extern t_config *config;
 extern t_log *logger;
 void inicializar_bitmap(const char* path, t_config* config) {
-    // Obtener BLOCK_COUNT del archivo de configuración
-    char* block_count_str = config_get_string_value(config, "BLOCK_COUNT");
+    // Obtener BLOCK_COUNT del archivo de configuración 
+    char* block_count_str = config_get_string_value(config, "BLOCK_COUNT"); //esto tira segmentation fault
     if (block_count_str == NULL) {
         log_error(logger, "No se encontró el valor BLOCK_COUNT en el archivo de configuración.");
         exit(EXIT_FAILURE);

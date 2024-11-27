@@ -4,8 +4,22 @@ extern t_log* logger;
 extern retardo_acceso;
 
 void inicializar_bloques(int block_count, int block_size, t_config *config) {
-    char *path_bloques = config_get_string_value(config, "MOUNT_DIR");
-    strcat(path_bloques, "/bloques.dat");
+    char *mount_dir = config_get_string_value(config, "MOUNT_DIR");
+    if (mount_dir == NULL) {
+        fprintf(stderr, "Error: No se encontró 'MOUNT_DIR' en la configuración.\n");
+        return 1;
+    }
+
+    size_t path_length = strlen(mount_dir) + strlen("/bloques.dat") + 1;
+
+    char *path_bloques = malloc(path_length);
+    if (path_bloques == NULL) {
+        fprintf(stderr, "Error: No se pudo asignar memoria para path_bloques.\n");
+        return 1;
+    }
+
+    // Construir la ruta completa
+    snprintf(path_bloques, path_length, "%s/bloques.dat", mount_dir);
 
     FILE *archivo = fopen(path_bloques, "rb+");
     if (!archivo) {
@@ -23,7 +37,7 @@ void inicializar_bloques(int block_count, int block_size, t_config *config) {
         log_error(logger, "Error al mapear bloques.dat en memoria");
         exit(EXIT_FAILURE);
     }
-
+    free(path_bloques);
     fclose(archivo);
 }
 
