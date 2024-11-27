@@ -1,9 +1,9 @@
-/*
-
 #include "bloques.h"
 extern t_config* config;
 extern t_log* logger;
-void inicializar_bloques() {
+extern retardo_acceso;
+
+void inicializar_bloques(int block_count, int block_size, t_config *config) {
     char *path_bloques = config_get_string_value(config, "MOUNT_DIR");
     strcat(path_bloques, "/bloques.dat");
 
@@ -37,4 +37,3 @@ void *leer_bloque(int bloque) {
     return bloques + (bloque * block_size);
 }
 
-*/

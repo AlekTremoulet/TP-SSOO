@@ -2,10 +2,8 @@
 
 t_log *logger;
 
-int block_count;
-int block_size;
 int retardo_acceso;
-int main(int argc, char* argv[]) {
+int main() {
 
     pthread_t tid_memoria;
 
@@ -21,13 +19,13 @@ int main(int argc, char* argv[]) {
    	arg_memoria.puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
 	
 	// Leer parámetros del archivo de configuración
-    block_count = config_get_int_value(config, "BLOCK_COUNT");
-    block_size = config_get_int_value(config, "BLOCK_SIZE");
-    retardo_acceso = config_get_int_value(config, "RETARDO_ACCESO_BLOQUE");
+    int block_count = config_get_int_value(config, "BLOCK_COUNT");
+    int block_size = config_get_int_value(config, "BLOCK_SIZE");
+    int retardo_acceso = config_get_int_value(config, "RETARDO_ACCESO_BLOQUE");
 
 	// Inicializar estructuras
     inicializar_bitmap();
-    inicializar_bloques();
+    inicializar_bloques(block_count,block_size, config);
 	
     //conexiones
 	pthread_create(&tid_memoria, NULL, conexion_memoria, (void *)&arg_memoria);
