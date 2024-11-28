@@ -37,15 +37,27 @@ void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
     log_info(logger, "path bitmap:%s",path_bitmap);
     FILE *archivo_bitmap = fopen(path_bitmap, "rb+");
     if (!archivo_bitmap) {
-        archivo_bitmap = fopen(path_bitmap, "wb+");
-        if (!archivo_bitmap) {
-            log_error(logger, "Error al crear el archivo bitmap.dat");
+        uint8_t* buffer = calloc(tamanio_bitmap, sizeof(uint8_t));
+        if (!buffer) {
+            log_error(logger, "Error al asignar memoria para el buffer del bitmap.");
             exit(EXIT_FAILURE);
         }
-        // Inicializar el archivo con ceros
-        uint8_t* buffer = calloc(tamanio_bitmap, sizeof(uint8_t)); //Asigna memoria para un buffer inicializado en ceros, cuyo tamaño es igual al bitmap
-        fwrite(buffer, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap); //Escribe el buffer de ceros en el archivo para inicializarlo.
-        fflush(archivo_bitmap); //Asegura que los datos escritos se guarden físicamente en el archivo.
+
+        rewind(archivo_bitmap);
+        size_t elementos_escritos = fwrite(buffer, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap);
+        if (elementos_escritos != tamanio_bitmap) {
+            log_error(logger, "Error al escribir en el archivo bitmap.dat. Bytes esperados: %zu, Bytes escritos: %zu.", tamanio_bitmap, elementos_escritos);
+            free(buffer);
+            exit(EXIT_FAILURE);
+        }
+
+        if (fflush(archivo_bitmap) != 0) {
+            log_error(logger, "Error al vaciar el buffer al archivo bitmap.dat.");
+            free(buffer);
+            exit(EXIT_FAILURE);
+        }
+
+        log_info(logger, "Archivo bitmap.dat inicializado con %zu bytes.", tamanio_bitmap);
         free(buffer);
     }
 
