@@ -52,7 +52,8 @@ void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
 
 
     // Leer o mapear el contenido del bitmap a memoria
-    uint8_t* contenido_bitmap = malloc(tamanio_bitmap);                                                // Reserva memoria para almacenar el contenido del bitmap                  
+    uint8_t* contenido_bitmap = malloc(tamanio_bitmap);       
+    rewind(archivo_bitmap);                 
     if (fread(contenido_bitmap, sizeof(uint8_t), tamanio_bitmap, archivo_bitmap) != tamanio_bitmap) {  // Lee los datos del archivo bitmap.dat y los copia en el buffer contenido_bitmap
         log_error(logger, "Error al leer el archivo bitmap.dat");
         exit(EXIT_FAILURE);
