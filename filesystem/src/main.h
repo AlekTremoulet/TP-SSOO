@@ -8,3 +8,4 @@
 void *conexion_memoria(void * arg_memoria);
 int main();
 void levantar_conexiones();
+

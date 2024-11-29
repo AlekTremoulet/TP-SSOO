@@ -3,7 +3,7 @@ extern t_config* config;
 extern t_log* logger;
 extern int retardo_acceso;
 
-void inicializar_bloques(int block_count, int block_size, char* mount_dir) {
+void inicializar_bloques(uint32_t block_count, int block_size, char* mount_dir) {
     if (mount_dir == NULL) {
         log_info(logger, "Error: No se encontró 'MOUNT_DIR' en la configuración.");
         return exit(EXIT_FAILURE);
@@ -13,7 +13,7 @@ void inicializar_bloques(int block_count, int block_size, char* mount_dir) {
     char *path_bloques = malloc(path_length);
     if (path_bloques == NULL) {
         log_info(logger, "Error: No se pudo asignar memoria para path_bloques.");
-        return exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
     
 
@@ -45,9 +45,14 @@ void inicializar_bloques(int block_count, int block_size, char* mount_dir) {
 }
 
 void escribir_bloque(int bloque, void *contenido, size_t tamanio) {
+    int block_count = config_get_int_value(config, "BLOCK_COUNT"); // Obtiene el total de bloques
+    if (bloque < 0 || bloque >= block_count) {
+        log_error(logger, "El índice de bloque %d está fuera del rango permitido.", bloque);
+        return; // No continúa la operación si el bloque es inválido
+    }
     if (tamanio > block_size) {
         log_error(logger, "El tamaño de escritura excede el tamaño del bloque.");
-        return exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
     usleep(retardo_acceso * 1000); // Retardo simulado
     memcpy(bloques + (bloque * block_size), contenido, tamanio);
@@ -55,8 +60,20 @@ void escribir_bloque(int bloque, void *contenido, size_t tamanio) {
 }
 
 void *leer_bloque(int bloque) {
-    usleep(retardo_acceso * 1000); // Retardo simulado
-    log_info(logger, "Leyendo bloque %d", bloque);
-    return bloques + (bloque * block_size);
-}
+    // Valida bloque dentro del rango
+    int block_count = config_get_int_value(config, "BLOCK_COUNT"); // Obtiene el número total de bloques
+    if (bloque < 0 || bloque >= block_count) {
+        log_error(logger, "El índice de bloque %d está fuera del rango permitido (0 - %d).", bloque, block_count - 1);
+        return NULL; // Devuelve NULL si el bloque es inválido
+    }
 
+    // Simula retardo de acceso al bloque
+    usleep(retardo_acceso * 1000);
+
+    // Calcula la dirección del bloque dentro del archivo mapeado
+    void *direccion_bloque = bloques + (bloque * block_size);
+
+    log_info(logger, "Bloque %d leído correctamente. Dirección: %p, Tamaño: %d bytes", bloque, direccion_bloque, block_size);
+
+    return direccion_bloque;
+}

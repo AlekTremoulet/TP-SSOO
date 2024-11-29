@@ -2,7 +2,7 @@
 
 t_log *logger;
 int retardo_acceso;
-
+t_config *config;
 int main() {
 
     pthread_t tid_memoria;
@@ -19,14 +19,13 @@ int main() {
    	arg_memoria.puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
 	
 	// Leer parámetros del archivo de configuración
-    int block_count = config_get_int_value(config, "BLOCK_COUNT");
+    uint32_t block_count = (uint32_t) config_get_int_value(config, "BLOCK_COUNT");
     int block_size = config_get_int_value(config, "BLOCK_SIZE");
     retardo_acceso = config_get_int_value(config, "RETARDO_ACCESO_BLOQUE");
-	char* block_count_str = config_get_string_value(config, "BLOCK_COUNT");
 	char* mount_dir = config_get_string_value(config, "MOUNT_DIR");
 	// Inicializar estructuras
-    inicializar_bitmap(mount_dir,block_count_str);
-    inicializar_bloques(block_count,block_size,mount_dir);
+	inicializar_bitmap(mount_dir,block_count);
+	inicializar_bloques(block_count,block_size,mount_dir);
 	
     //conexiones
 	pthread_create(&tid_memoria, NULL, conexion_memoria, (void *)&arg_memoria);
@@ -76,14 +75,12 @@ void *conexion_memoria(void* arg_memoria)
 						log_error(logger, "Error: No se encontró 'MOUNT_DIR' en la configuración.");
 						return (void*)EXIT_FAILURE;
 					}
-
-					char* block_count_str = config_get_string_value(config, "BLOCK_COUNT");
-					if (block_count_str == NULL) {
+					uint32_t block_count = (uint32_t) config_get_int_value(config, "BLOCK_COUNT");
+					if (block_count == 0) {
 						log_error(logger, "Error: No se encontró 'BLOCK_COUNT' en la configuración.");
 						return (void*)EXIT_FAILURE;
 					}
-
-					inicializar_bitmap(mount_dir, block_count_str);
+					inicializar_bitmap(mount_dir, block_count);
 					break;
 				case -1:
 					log_error(logger, "el cliente se desconecto. Terminando servidor");

@@ -22,7 +22,7 @@ extern t_log *logger;
 void *bloques = NULL;
 int block_size = 4; 
 
-void inicializar_bloques(int block_count, int block_size, char* mount_dir);
+void inicializar_bloques(uint32_t block_count, int block_size, char* mount_dir);
 void escribir_bloque(int bloque, void *contenido, size_t tamanio);
 void *leer_bloque(int bloque);
 

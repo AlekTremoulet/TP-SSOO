@@ -6,14 +6,12 @@ static FILE* bitmap_file;
 
 extern t_config *config;
 extern t_log *logger;
-void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
+void inicializar_bitmap(const char* mount_dir,uint32_t block_count) {
     // Obtener BLOCK_COUNT del archivo de configuración 
-    if (block_count_str == NULL) {
+    if (block_count == 0) {
         log_error(logger, "No se encontró el valor BLOCK_COUNT en el archivo de configuración.");
         exit(EXIT_FAILURE);
     }
-
-    uint32_t block_count = (uint32_t) strtoul(block_count_str, NULL, 10);
 
     // Calcular el tamaño del bitmap
     
@@ -29,7 +27,7 @@ void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
     char *path_bitmap = malloc(path_length);
     if (path_bitmap == NULL) {
         log_info(logger, "Error: No se pudo asignar memoria para path_bloques.");
-        return exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     // Construir la ruta completa
@@ -68,8 +66,8 @@ void inicializar_bitmap(const char* mount_dir,char* block_count_str) {
 
     fclose(archivo_bitmap);
     log_info(logger, "Bitmap inicializado correctamente.");
-
     free(path_bitmap);
+    pthread_mutex_init(&mutex_bitmap, NULL); //No necesito bloquear a otros hilos porque no debería haber hilos intentando usar un recurso que aún no existe. Por eso lo pongo al final y no al comienzo
 }
 
 bool espacio_disponible(int cantidad) { //asegurar que hay bloques libres antes de intentar reservar uno
@@ -92,7 +90,7 @@ uint32_t reservar_bloque() {
     if (!espacio_disponible(1)) {
         pthread_mutex_unlock(&mutex_bitmap);
         log_error(logger, "No hay bloques disponibles para reservar.");
-        return ;
+        return -1;
     }
     for (uint32_t i = 0; i < bitarray_get_max_bit(bitmap); i++) {
         if (!bitarray_test_bit(bitmap, i)) {
@@ -113,7 +111,7 @@ void liberar_bloque(uint32_t bloque) {
 
 void destruir_bitmap() {
     pthread_mutex_lock(&mutex_bitmap);
-    bitmap_file = fopen("bitmap.dat", "rb+");
+    //bitmap_file = fopen("bitmap.dat", "rb+"); el archivo ya se encuentra abierto en realidad
     if (!bitmap_file) {
         log_error(logger, "Error al abrir el archivo bitmap.dat para escribir");
         exit(EXIT_FAILURE);
@@ -132,4 +130,5 @@ void destruir_bitmap() {
 
     pthread_mutex_unlock(&mutex_bitmap);
     pthread_mutex_destroy(&mutex_bitmap);
+    
 }
