@@ -21,10 +21,8 @@ int buscar_tid(t_list *lista, int tid);
 
 void error_contexto(char *error);
 
-//falta dinamica de:
 void crear_proceso(t_pcb *pcb);
 void fin_proceso(int pid);
-//
 
 void inicializar_tabla_particion_fija(t_list *particiones);
 void init_tablas_dinamicas();

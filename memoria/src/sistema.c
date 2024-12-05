@@ -396,22 +396,54 @@ int buscar_en_dinamica(int pid){
         }
     }return -1;
 }
-void crear_proceso(t_pcb *pcb){
-    int index = agregar_a_tabla_particion_fija(pcb);
-    elemento_particiones_fijas *aux = list_get(memoria_usuario->tabla_particiones_fijas, index);
-    pcb->registro->base=aux->base; //guarda la direccion de inicio del segmento en el registro "base"
-    pcb->registro->limite=aux->size;
-    //agregar pcb a la lista global
-    list_add(memoria_usuario->lista_pcb, pcb);
-    
-    t_list_iterator *iterator = list_iterator_create(pcb->listaTCB); // iterator para listaTCB
-    t_tcb * tcb_aux;
-    
-    while(list_iterator_has_next(iterator)){ // llena la lista de tcb con los tcb que vinieron dentro del pcb
-        tcb_aux = list_iterator_next(iterator);
-        list_add(memoria_usuario->lista_tcb, tcb_aux);
+
+void crear_proceso(t_pcb *pcb) {
+    switch(memoria_usuario->tipo_particion) {
+        case FIJAS:
+            int index_fija = agregar_a_tabla_particion_fija(pcb);
+            elemento_particiones_fijas *aux_fija = list_get(memoria_usuario->tabla_particiones_fijas, index_fija);
+            pcb->registro->base = aux_fija->base;  // Guardo la dirección de inicio en el registro base
+            pcb->registro->limite = aux_fija->size;
+            
+            // Agrego el PCB a la lista global
+            list_add(memoria_usuario->lista_pcb, pcb);
+            
+            // Agrego TCBs de este PCB a la lista global
+            t_list_iterator *iterator_fija = list_iterator_create(pcb->listaTCB);
+            t_tcb *tcb_aux_fija;
+            while (list_iterator_has_next(iterator_fija)) {
+                tcb_aux_fija = list_iterator_next(iterator_fija);
+                list_add(memoria_usuario->lista_tcb, tcb_aux_fija);
+            }
+            list_iterator_destroy(iterator_fija);
+            break;
+        
+        case DINAMICAS:
+            int index_dinamica = agregar_a_dinamica(pcb);
+            if (index_dinamica == -1) {
+                log_error(logger, "No se pudo asignar memoria para el proceso PID %d en memoria dinámica.", pcb->pid);
+                return; // Si no se pudo asignar, finaliza
+            }
+
+            // Agrego PCB a la lista global
+            list_add(memoria_usuario->lista_pcb, pcb);
+
+            // Agrego TCBs de este PCB a la lista global
+            t_list_iterator *iterator_dinamica = list_iterator_create(pcb->listaTCB);
+            t_tcb *tcb_aux_dinamica;
+            while (list_iterator_has_next(iterator_dinamica)) {
+                tcb_aux_dinamica = list_iterator_next(iterator_dinamica);
+                list_add(memoria_usuario->lista_tcb, tcb_aux_dinamica);
+            }
+            list_iterator_destroy(iterator_dinamica);
+            break;
+        
+        default:
+            log_error(logger, "Tipo de memoria no reconocido.");
+            break;
     }
 }
+
 void crear_thread(t_tcb *tcb){
     int index_pid;
     t_pcb *pcb_aux;
@@ -422,6 +454,8 @@ void crear_thread(t_tcb *tcb){
     list_add(memoria_usuario->lista_tcb, tcb);
 
 }
+
+/*
 void fin_proceso(int pid){ // potencialmente faltan semaforos
     int index_pid, index_tid;
     t_pcb *pcb_aux;
@@ -455,7 +489,50 @@ void fin_proceso(int pid){ // potencialmente faltan semaforos
     }
     free(tcb_aux);
     free(pcb_aux);
+} */
+
+void fin_proceso(int pid) {
+    int index_pid, index_tid;
+    t_pcb *pcb_aux;
+    t_tcb *tcb_aux;
+
+    switch(memoria_usuario->tipo_particion) {
+        case FIJAS:
+            elemento_particiones_fijas *aux;
+            index_pid = buscar_en_tabla_fija(pid);
+            if(index_pid!=(-1)){
+                aux = list_get(memoria_usuario->tabla_particiones_fijas, index_pid);
+                aux->libre_ocupado = 0;
+            }
+            index_pid = buscar_pid(memoria_usuario->lista_pcb, pid);
+            pcb_aux = list_get(memoria_usuario->lista_pcb, index_pid);
+            
+            t_list_iterator *iterator = list_iterator_create(pcb_aux->listaTCB);
+            while(list_iterator_has_next(iterator)){
+                tcb_aux = list_iterator_next(iterator);
+                index_tid = buscar_tid(memoria_usuario->lista_tcb, tcb_aux->tid);
+                tcb_aux = list_remove(memoria_usuario->lista_tcb, index_tid);
+            }
+            //mutex?
+            pcb_aux = list_remove(memoria_usuario->lista_pcb, index_pid);
+            //mutex?
+
+            break;
+            
+        case DINAMICAS:
+            remover_proceso_de_tabla_dinamica(pid);
+            log_info(logger, "Proceso PID %d liberado de memoria dinámica.", pid);
+            break;
+        
+        default:
+            log_error(logger, "Tipo de memoria no reconocido.");
+            break;
+    }
+
+    free(tcb_aux);
+    free(pcb_aux);
 }
+
 void fin_thread(int tid){
     int index_tid, index_pid;
     int pid;
