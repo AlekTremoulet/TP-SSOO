@@ -3,6 +3,57 @@
 extern int socket_cliente_cpu;
 extern t_memoria *memoria_usuario;
 
+// Función que recibe el paquete y extrae PID y TID
+bool recibir_pid_tid(t_list *paquete_recv, int *pid, int *tid) {
+    if (list_size(paquete_recv) < 2) {
+        log_error(logger, "Paquete incompleto recibido para CONTEXTO_RECEIVE.");
+        list_destroy_and_destroy_elements(paquete_recv, (void *)eliminar_paquete);
+        return false;
+    }
+
+    // Extraer PID
+    t_paquete *pid_paquete = list_remove(paquete_recv, 0);
+    memcpy(pid, pid_paquete->buffer->stream, sizeof(int));
+    eliminar_paquete(pid_paquete);
+
+    // Extraer TID
+    t_paquete *tid_paquete = list_remove(paquete_recv, 0);
+    memcpy(tid, tid_paquete->buffer->stream, sizeof(int));
+    eliminar_paquete(tid_paquete);
+
+    list_destroy(paquete_recv);  // Liberar lista de paquetes
+    return true;
+}
+
+void enviar_contexto(int pid, int tid) {
+    t_pcb *pcb;
+    t_tcb *tcb;
+
+    // Busco el PCB y TCB
+    if (!obtener_pcb_y_tcb(pid, tid, &pcb, &tcb)) {
+        log_error(logger, "No se pudo obtener el contexto para PID %d, TID %d.", pid, tid);
+        return; // Si no se encuentran, se registra el error y se termina
+    }
+
+    // Creo un paquete para enviar el contexto de ejecución
+    t_paquete *paquete = crear_paquete(CONTEXTO_SEND);
+
+    // Agrego los registros del TCB al paquete
+    agregar_a_paquete(paquete, &tcb->registro, sizeof(tcb->registro));
+
+    // Agrego la base y el límite del PCB al paquete
+    agregar_a_paquete(paquete, &pcb->registro->base, sizeof(pcb->registro->base));
+    agregar_a_paquete(paquete, &pcb->registro->limite, sizeof(pcb->registro->limite));
+
+    // Envio el paquete al cliente (CPU)
+    enviar_paquete(paquete, socket_cliente_cpu);
+
+    // Libero memoria del paquete
+    eliminar_paquete(paquete);
+
+    // Registramos en el log que se envió el contexto
+    log_info(logger, "Contexto enviado para PID %d, TID %d.", pid, tid);
+}
 
 /// @brief Read memory
 /// @param direccion 
@@ -112,10 +163,10 @@ t_paquete *obtener_contexto(int pid, int tid) {
     // Buscar PCB por PID
     int index_pcb = buscar_pid(memoria_usuario->lista_pcb, pid);
     if (index_pcb == -1) {
-        log_error(logger, "No se encontró el PID %d en memoria.", pid);
-        return NULL;
+        log_error(logger, "PID %d no encontrado en memoria.", pid);
+        return false;
     }
-    t_pcb *pcb = list_get(memoria_usuario->lista_pcb, index_pcb);
+    *pcb_out = list_get(memoria_usuario->lista_pcb, index_pcb);
 
     // // Buscar TCB por TID dentro del PCB
     // int index_tcb = buscar_tid(pcb->listaTCB, tid);
@@ -137,34 +188,39 @@ t_paquete *obtener_contexto(int pid, int tid) {
 
 void actualizar_contexto_ejecucion() {
     t_list *paquete_recv_list;
-    t_paquete *paquete_recv;
+    t_pcb *pcb;
+    t_tcb *tcb;
     int pid, tid;
     RegistroCPU registros_actualizados;
 
-    // Recibir paquete desde la CPU
+    // Recibo el paquete de la CPU
     paquete_recv_list = recibir_paquete(socket_cliente_cpu);
 
+    // Valido que el paquete contiene los elementos necesarios
     if (!paquete_recv_list || list_size(paquete_recv_list) < 3) {
-        log_error(logger, "Paquete incompleto recibido para actualizar contexto de ejecución.");
+        log_error(logger, "Paquete incompleto recibido para actualizar contexto.");
         liberar_lista_paquetes(paquete_recv_list);
+        enviar_error_actualizacion(); // Envio error a la CPU
         return;
     }
 
-    // Extraer PID
-    paquete_recv = list_remove(paquete_recv_list, 0);
-    memcpy(&pid, paquete_recv->buffer->stream, sizeof(int));
-    eliminar_paquete(paquete_recv);
+    // Obtengo el PID
+    t_paquete *pid_paquete = list_remove(paquete_recv_list, 0);
+    memcpy(&pid, pid_paquete->buffer->stream, sizeof(int));
+    eliminar_paquete(pid_paquete);
 
-    // Extraer TID
-    paquete_recv = list_remove(paquete_recv_list, 0);
-    memcpy(&tid, paquete_recv->buffer->stream, sizeof(int));
-    eliminar_paquete(paquete_recv);
+    // Obtengo el TID
+    t_paquete *tid_paquete = list_remove(paquete_recv_list, 0);
+    memcpy(&tid, tid_paquete->buffer->stream, sizeof(int));
+    eliminar_paquete(tid_paquete);
 
-    // Extraer registros actualizados
-    paquete_recv = list_remove(paquete_recv_list, 0);
-    memcpy(&registros_actualizados, paquete_recv->buffer->stream, sizeof(RegistroCPU));
-    eliminar_paquete(paquete_recv);
-    liberar_lista_paquetes(paquete_recv_list);
+    // Obtengo los registros actualizados
+    t_paquete *registros_paquete = list_remove(paquete_recv_list, 0);
+    memcpy(&registros_actualizados, registros_paquete->buffer->stream, sizeof(RegistroCPU));
+    eliminar_paquete(registros_paquete);
+
+    // Libero lista de paquetes
+    list_destroy(paquete_recv_list);
 
     // Validar PID y TID
     int index_pcb = buscar_pid(memoria_usuario->lista_pcb, pid);
@@ -187,7 +243,7 @@ void actualizar_contexto_ejecucion() {
     memcpy(&(pcb->registro), &registros_actualizados, sizeof(RegistroCPU));
     log_info(logger, "Registros actualizados para PID %d, TID %d.", pid, tid);
 
-    // Responder OK al cliente
+    // Respondemos a la CPU con un paquete de confirmación
     t_paquete *paquete_ok = crear_paquete(OK_MEMORIA);
     const char *mensaje_ok = "Actualización exitosa";
     //agregar_a_paquete(paquete_ok, mensaje_ok, strlen(mensaje_ok) + 1);
