@@ -47,11 +47,11 @@ void enviar_contexto(){
     paquete_recv_list = recibir_paquete(socket_cliente_cpu);
 
     paquete_recv = list_remove(paquete_recv_list, 0);
-    pid = (int)paquete_recv->buffer->stream;
+    pid = (intptr_t)paquete_recv->buffer->stream;
     paquete_recv = list_remove(paquete_recv_list, 0);
-    tid = (int)paquete_recv->buffer->stream;
+    tid = (intptr_t)paquete_recv->buffer->stream;
     paquete_recv = list_remove(paquete_recv_list, 0);
-    PC = (int)paquete_recv->buffer->stream;
+    PC = (intptr_t)paquete_recv->buffer->stream;
 
     if(pid <= 0 || tid < 0 || PC < 0){
         log_error(logger, "CPU envio parametros incorrectos pidiendo el contexto de ejecucion");
@@ -65,7 +65,7 @@ void enviar_contexto(){
     if(index_thread==-1){
         error_contexto("No se encontro el TID en el proceso");
     }
-    t_tcb *tcb_aux = list_get(pcb_aux->listaTCB, index_thread);
+    //t_tcb *tcb_aux = list_get(pcb_aux->listaTCB, index_thread); NO SE USA
 
     agregar_a_paquete(paquete_send, pcb_aux->registro, sizeof(pcb_aux->registro));
     enviar_paquete(paquete_send, socket_cliente_cpu);
@@ -95,11 +95,11 @@ void recibir_contexto(){
     aux_pcb->registro = registro;
 
     paquete_send = crear_paquete(CONTEXTO_SEND);
-    char *msj;
+    char *msj = malloc(100);
     strcpy(msj, "contexto recibido");
     agregar_a_paquete(paquete_send, msj, sizeof(msj));
-    log_info(logger, msj);
-
+    //log_info(logger, msj);
+    log_info(logger, "%s", msj);
 }
 
 t_paquete *obtener_contexto(int pid, int tid) {
@@ -190,7 +190,8 @@ void actualizar_contexto_ejecucion() {
     // Responder OK al cliente
     t_paquete *paquete_ok = crear_paquete(OK_MEMORIA);
     const char *mensaje_ok = "Actualización exitosa";
-    agregar_a_paquete(paquete_ok, mensaje_ok, strlen(mensaje_ok) + 1);
+    //agregar_a_paquete(paquete_ok, mensaje_ok, strlen(mensaje_ok) + 1);
+    agregar_a_paquete(paquete_ok, (void *)mensaje_ok, strlen(mensaje_ok) + 1);
     enviar_paquete(paquete_ok, socket_cliente_cpu);
     eliminar_paquete(paquete_ok);
 }
@@ -198,7 +199,8 @@ void actualizar_contexto_ejecucion() {
 void enviar_error_actualizacion() {
     t_paquete *paquete_error = crear_paquete(ERROR_MEMORIA);
     const char *mensaje_error = "Error al actualizar contexto de ejecución";
-    agregar_a_paquete(paquete_error, mensaje_error, strlen(mensaje_error) + 1);
+    //agregar_a_paquete(paquete_error, mensaje_error, strlen(mensaje_error) + 1);
+    agregar_a_paquete(paquete_error, (void *)mensaje_error, strlen(mensaje_error) + 1);
     enviar_paquete(paquete_error, socket_cliente_cpu);
     eliminar_paquete(paquete_error);
 }
@@ -563,7 +565,7 @@ int obtener_instruccion(int PC, int tid){ // envia el paquete instruccion a cpu.
 		return -1;
 	}
 	
-	t_paquete *paquete_send;
+	t_paquete *paquete_send = malloc(sizeof(t_paquete));
     t_tcb *tcb_aux;
 	int index_tid;
 	char * instruccion;
@@ -578,4 +580,6 @@ int obtener_instruccion(int PC, int tid){ // envia el paquete instruccion a cpu.
 	agregar_a_paquete(paquete_send, instruccion, sizeof(instruccion));
 	enviar_paquete(paquete_send, socket_cliente_cpu);
 	eliminar_paquete(paquete_send);
+
+    return 0;
 }

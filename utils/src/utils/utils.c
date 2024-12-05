@@ -206,7 +206,8 @@ void leer_consola()
 {
 	char* leido;
 	while(!string_is_empty(leido = readline("> "))){
-		log_info(logger, leido);
+		//log_info(logger, leido);
+        log_info(logger, "%s", leido);
 	}
 	free(leido);
 }

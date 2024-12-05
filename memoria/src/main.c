@@ -39,13 +39,14 @@ int main(int argc, char* argv[]) {
 	pthread_create(&tid_fs, NULL, cliente_conexion_filesystem, (void *)&arg_fs);
 	//conexiones
 
+	intptr_t ret_value_int = (intptr_t)ret_value;
     //espero fin conexiones
 	pthread_join(tid_cpu, ret_value);
-	log_info(logger,"conexion con cpu cerrada con status code: %d", (int)ret_value);
+	log_info(logger,"conexion con cpu cerrada con status code: %ld", ret_value_int);
 	pthread_join(tid_kernel, ret_value);
-	log_info(logger,"conexion con server muiltihilo kernel cerrada con status code: %d", (int)ret_value);
+	log_info(logger,"conexion con server muiltihilo kernel cerrada con status code: %ld", ret_value_int);
 	pthread_join(tid_fs, ret_value);
-	log_info(logger,"conexion con filesystem cerrada con status code: %d", (int)ret_value);
+	log_info(logger,"conexion con filesystem cerrada con status code: %ld", ret_value_int);
 	//espero fin conexiones
 
 }
@@ -170,7 +171,7 @@ void *peticion_kernel_NEW_THREAD(void* arg_peticion){
 
 	paquete_list = recibir_paquete(socket);
 	tcb = list_remove(paquete_list, 0);
-	pid = (int)list_remove(paquete_list, 0);
+	pid = (intptr_t)list_remove(paquete_list, 0);
 	crear_thread(tcb);
 	
 	//notificar resultado a kernel
@@ -192,7 +193,7 @@ void *peticion_kernel_END_PROCESS(void* arg_peticion){
 	t_paquete * paquete_send;
 
 	paquete_list = recibir_paquete(socket);
-	pid = (int)list_remove(paquete_list, 0);
+	pid = (intptr_t)list_remove(paquete_list, 0);
 	fin_proceso(pid);
 	
 	//notificar resultado a kernel
@@ -214,7 +215,7 @@ void *peticion_kernel_END_THREAD(void* arg_peticion){
 	t_paquete * paquete_send;
 
 	paquete_list = recibir_paquete(socket);
-	tid = (int)list_remove(paquete_list, 0);
+	tid = (intptr_t)list_remove(paquete_list, 0);
 	fin_thread(tid);
 	
 	//notificar resultado a kernel
@@ -270,8 +271,8 @@ void *conexion_cpu(void* arg_cpu)
 				break;
 			case OBTENER_INSTRUCCION:
 				paquete_recv = recibir_paquete(socket_cliente_cpu);
-				PC = (int)list_remove(paquete_recv, 0);
-				tid = (int)list_remove(paquete_recv, 0);
+				PC = (intptr_t)list_remove(paquete_recv, 0);
+				tid = (intptr_t)list_remove(paquete_recv, 0);
 				obtener_instruccion(PC, tid);
 				break;
 			case READ_MEM:
