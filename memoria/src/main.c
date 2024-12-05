@@ -172,7 +172,16 @@ void *conexion_cpu(void* arg_cpu)
 				enviar_paquete(handshake_send, socket_cliente_cpu);
 				break;
 			case CONTEXTO_RECEIVE:
-				enviar_contexto();
+				// Recibo el paquete y extraigo pid y tid
+				t_list *paquete_recv = recibir_paquete(socket_cliente_cpu);
+
+				int pid, tid;
+				if (recibir_pid_tid(paquete_recv, &pid, &tid)) {
+					enviar_contexto(pid, tid);
+    			}
+				break;
+			case CONTEXTO_UPDATE:
+				actualizar_contexto_ejecucion();
 				break;
 			case -1:
 				log_error(logger, "el cliente se desconecto. Terminando servidor");

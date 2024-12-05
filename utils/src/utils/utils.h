@@ -52,6 +52,7 @@ typedef enum
     PETICION_KERNEL,
     CONTEXTO_SEND,
     CONTEXTO_RECEIVE,
+    CONTEXTO_UPDATE,
     OBTENER_INSTRUCCION,
     ERROR_MEMORIA,
     INFO_HILO, // agregado para cuando el kernel le manda al cpu el tid del hilo planificado a ejecutar

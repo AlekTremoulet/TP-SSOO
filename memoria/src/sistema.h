@@ -9,11 +9,11 @@
 #define OK_MEMORIA 1
 
 //cpu
-void enviar_contexto(void);
+bool recibir_pid_tid(t_list *paquete_recv, int *pid, int *tid);
+bool obtener_pcb_y_tcb(int pid, int tid, t_pcb **pcb_out, t_tcb **tcb_out);
+void enviar_contexto(int pid, int tid);
 uint32_t read_memory(uint32_t direccion);
 int write_memory(uint32_t direccion, uint32_t valor);
-void recibir_contexto();
-t_paquete *obtener_contexto(int pid, int tid);
 void actualizar_contexto_ejecucion(void);
 void enviar_error_actualizacion();
 int buscar_pid(t_list *lista, int pid);
