@@ -252,17 +252,10 @@ void *conexion_cpu(void* arg_cpu)
 	int PC;
 	int tid;
 	while(true){
-		int cod_op = recibir_operacion(socket_cliente_cpu);
+		protocolo_socket cod_op = (protocolo_socket)recibir_operacion(socket_cliente_cpu);
 		sleep(delay); // retardo en peticion / cpu
 		switch (cod_op)
 		{
-			case HANDSHAKE:
-				paquete_recv = recibir_paquete(socket_cliente_cpu);
-				log_info(logger, "me llego:cpu");
-				list_iterate(paquete_recv, (void*) iterator);
-				enviar_paquete(handshake_send, socket_cliente_cpu);
-				list_destroy(paquete_recv);
-				break;
 			case CONTEXTO_RECEIVE:
 				// Recibo el paquete y extraigo pid y tid
 				t_list *paquete_recv = recibir_paquete(socket_cliente_cpu);
@@ -283,6 +276,7 @@ void *conexion_cpu(void* arg_cpu)
 				PC = (intptr_t)list_remove(paquete_recv, 0);
 				tid = (intptr_t)list_remove(paquete_recv, 0);
 				obtener_instruccion(PC, tid);
+				list_destroy(paquete_recv);
 				break;
 			case READ_MEM:
 				paquete_recv = recibir_paquete(socket_cliente_cpu);

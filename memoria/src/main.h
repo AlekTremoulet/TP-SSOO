@@ -11,8 +11,8 @@
 #include <time.h>
 
 typedef enum particiones{
-    FIJAS,
-    DINAMICAS
+    DINAMICAS,
+    FIJAS
 }particiones;
 
 void enviar_contexto(int pid, int tid);
