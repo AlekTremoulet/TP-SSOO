@@ -265,11 +265,8 @@ void *conexion_cpu(void* arg_cpu)
 					enviar_contexto(pid, tid);
     			}
 				break;
-			case CONTEXTO_UPDATE:
-				actualizar_contexto_ejecucion();
-				break;
 			case CONTEXTO_SEND:
-				recibir_contexto();
+				actualizar_contexto_ejecucion();
 				break;
 			case OBTENER_INSTRUCCION:
 				paquete_recv = recibir_paquete(socket_cliente_cpu);

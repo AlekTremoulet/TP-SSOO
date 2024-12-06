@@ -52,7 +52,7 @@ void enviar_contexto(int pid, int tid) {
     t_tcb *tcb;
 
     // Busco el PCB y TCB
-    if (!obtener_pcb_y_tcb(pid, tid, &pcb, &tcb)) {
+    if (!obtener_pcb_y_tcb(pid, tid, pcb, tcb)) {
         log_error(logger, "No se pudo obtener el contexto para PID %d, TID %d.", pid, tid);
         return; // Si no se encuentran, se registra el error y se termina
     }
@@ -142,14 +142,14 @@ void obtener_contexto(int pid, int tid) {
     
     if (pid <= 0 || tid < 0) {
         log_error(logger, "PID o TID inválidos al solicitar contexto (PID: %d, TID: %d)", pid, tid);
-        return NULL;
+        return;
     }
 
     // Buscar PCB por PID
     int index_pcb = buscar_pid(memoria_usuario->lista_pcb, pid);
     if (index_pcb == -1) {
         log_error(logger, "PID %d no encontrado en memoria.", pid);
-        return false;
+        return;
     }
     t_pcb *pcb_out = list_get(memoria_usuario->lista_pcb, index_pcb);
 
