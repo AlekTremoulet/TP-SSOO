@@ -3,6 +3,28 @@
 extern int socket_cliente_cpu;
 extern t_memoria *memoria_usuario;
 
+// Funcion auxiliar para buscar y validar el proceso (PCB) y el hilo (TCB) asociados al PID y TID
+// t_pcb **pcb_out y t_tcb **tcb_out: Son punteros de salida. Al encontrar el PCB y el TCB, la función los almacena en estas variables para que la función que llama a obtener_pcb_y_tcb pueda utilizarlos.
+bool obtener_pcb_y_tcb(int pid, int tid, t_pcb *pcb_out, t_tcb *tcb_out) {
+    // Buscar el PCB
+    int index_pcb = buscar_pid(memoria_usuario->lista_pcb, pid);
+    if (index_pcb == -1) {
+        log_error(logger, "PID %d no encontrado en memoria.", pid);
+        return false;
+    }
+    pcb_out = list_get(memoria_usuario->lista_pcb, index_pcb);
+
+    // Buscar el TCB dentro del PCB
+    int index_tcb = buscar_tid((pcb_out)->listaTCB, tid);
+    if (index_tcb == -1) {
+        log_error(logger, "TID %d no encontrado en el proceso PID %d.", tid, pid);
+        return false;
+    }
+    tcb_out = list_get((pcb_out)->listaTCB, index_tcb);
+
+    return true;
+} // TODO: verificar manejo de list_get con Santi
+
 // Función que recibe el paquete y extrae PID y TID
 bool recibir_pid_tid(t_list *paquete_recv, int *pid, int *tid) {
     if (list_size(paquete_recv) < 2) {
@@ -39,11 +61,10 @@ void enviar_contexto(int pid, int tid) {
     t_paquete *paquete = crear_paquete(CONTEXTO_SEND);
 
     // Agrego los registros del TCB al paquete
-    agregar_a_paquete(paquete, &tcb->registro, sizeof(tcb->registro));
+    //agregar_a_paquete(paquete, &tcb->registro, sizeof(tcb->registro));
 
-    // Agrego la base y el límite del PCB al paquete
-    agregar_a_paquete(paquete, &pcb->registro->base, sizeof(pcb->registro->base));
-    agregar_a_paquete(paquete, &pcb->registro->limite, sizeof(pcb->registro->limite));
+    // Agrego el registro entero del PCB
+    agregar_a_paquete(paquete, &pcb->registro, sizeof(pcb->registro));
 
     // Envio el paquete al cliente (CPU)
     enviar_paquete(paquete, socket_cliente_cpu);
@@ -86,42 +107,6 @@ int write_memory(uint32_t direccion, uint32_t valor){
     return 0;
 }
 
-void enviar_contexto(){
-    t_list *paquete_recv_list;
-    t_paquete *paquete_recv;
-    t_paquete *paquete_send;
-    int pid;
-    int tid;
-    int PC;
-
-    
-    paquete_recv_list = recibir_paquete(socket_cliente_cpu);
-
-    paquete_recv = list_remove(paquete_recv_list, 0);
-    pid = (intptr_t)paquete_recv->buffer->stream;
-    paquete_recv = list_remove(paquete_recv_list, 0);
-    tid = (intptr_t)paquete_recv->buffer->stream;
-    paquete_recv = list_remove(paquete_recv_list, 0);
-    PC = (intptr_t)paquete_recv->buffer->stream;
-
-    if(pid <= 0 || tid < 0 || PC < 0){
-        log_error(logger, "CPU envio parametros incorrectos pidiendo el contexto de ejecucion");
-    }
-    int index_pcb = buscar_pid(memoria_usuario->lista_pcb, pid);
-    if(index_pcb==-1){
-        error_contexto("No se encontro el PID en memoria");
-    }
-    t_pcb *pcb_aux = list_get(memoria_usuario->lista_pcb, index_pcb);
-    int index_thread = buscar_tid(pcb_aux->listaTCB, tid);
-    if(index_thread==-1){
-        error_contexto("No se encontro el TID en el proceso");
-    }
-    //t_tcb *tcb_aux = list_get(pcb_aux->listaTCB, index_thread); NO SE USA
-
-    agregar_a_paquete(paquete_send, pcb_aux->registro, sizeof(pcb_aux->registro));
-    enviar_paquete(paquete_send, socket_cliente_cpu);
-    eliminar_paquete(paquete_send);
-}
 void recibir_contexto(){
 
     t_list *paquete_recv_list;
@@ -153,7 +138,7 @@ void recibir_contexto(){
     log_info(logger, "%s", msj);
 }
 
-t_paquete *obtener_contexto(int pid, int tid) {
+void obtener_contexto(int pid, int tid) {
     
     if (pid <= 0 || tid < 0) {
         log_error(logger, "PID o TID inválidos al solicitar contexto (PID: %d, TID: %d)", pid, tid);
@@ -166,7 +151,7 @@ t_paquete *obtener_contexto(int pid, int tid) {
         log_error(logger, "PID %d no encontrado en memoria.", pid);
         return false;
     }
-    *pcb_out = list_get(memoria_usuario->lista_pcb, index_pcb);
+    t_pcb *pcb_out = list_get(memoria_usuario->lista_pcb, index_pcb);
 
     // // Buscar TCB por TID dentro del PCB
     // int index_tcb = buscar_tid(pcb->listaTCB, tid);
@@ -180,10 +165,11 @@ t_paquete *obtener_contexto(int pid, int tid) {
     t_paquete *paquete_send = crear_paquete(CONTEXTO_SEND);
 
     // Agregar registros del TCB
-    agregar_a_paquete(paquete_send, &pcb->registro, sizeof(pcb->registro));
+    agregar_a_paquete(paquete_send, &pcb_out->registro, sizeof(pcb_out->registro));
+    enviar_paquete(paquete_send, socket_cliente_cpu);
+    eliminar_paquete(paquete_send);
 
     log_info(logger, "Contexto de ejecución (PID: %d, TID: %d) preparado exitosamente.", pid, tid);
-    return paquete_send;
 }
 
 void actualizar_contexto_ejecucion() {
@@ -229,7 +215,7 @@ void actualizar_contexto_ejecucion() {
         enviar_error_actualizacion();
         return;
     }
-    t_pcb *pcb = list_get(memoria_usuario->lista_pcb, index_pcb);
+    pcb = list_get(memoria_usuario->lista_pcb, index_pcb);
 
     // int index_tcb = buscar_tid(pcb->listaTCB, tid);
     // if (index_tcb == -1) {
